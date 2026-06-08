@@ -70,6 +70,7 @@ DEALINGS IN THE SOFTWARE.
 #include "SampleSource.h"
 #include "PulseIn.h"
 #include "neopixel.h"
+#include "MicroBitAccessibility.h"
 
 #include "MESEvents.h"
 
@@ -170,6 +171,7 @@ namespace codal
             MicroBitCompassCalibrator   compassCalibrator;
             MicroBitAudio               audio;
             MicroBitLog                 log;
+            MicroBitAccessibility       accessibility;
 
 
             /**
