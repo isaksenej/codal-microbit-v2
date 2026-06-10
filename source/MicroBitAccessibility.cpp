@@ -1,61 +1,72 @@
+// if you need serial for debugging, you need to edit here, the header, and MicroBit.cpp
 #include "MicroBitAccessibility.h"
 
 using namespace codal;
 
-MicroBitAccessibility::MicroBitAccessibility(MicroBitDisplay& _display, NRF52Serial& _serial)
-    : display(_display), serial(_serial)
+MicroBitAccessibility::MicroBitAccessibility(MicroBitAccessibilityResponder& _responder, MicroBitAccessibilityTransmitter& _transmitter)
+    : responder(&_responder), transmitter(&_transmitter)
 {
 }
 
+// constructor with serial for debugging
+// MicroBitAccessibility::MicroBitAccessibility(MicroBitAccessibilityResponder& _responder, MicroBitAccessibilityTransmitter& _transmitter, NRF52Serial& _serial)
+//     : responder(&_responder), transmitter(&_transmitter), serial(&_serial)
+// {
+// }
+
 int MicroBitAccessibility::init()
 {
-    serial.send(ManagedString("Accessibility Initialised :)\r\n"));
-
-    if (EventModel::defaultEventBus){
-        EventModel::defaultEventBus->listen(DEVICE_ID_DISPLAY, DISPLAY_EVT_ANIMATION_COMPLETE, this, &MicroBitAccessibility::displayEvent, MESSAGE_BUS_LISTENER_IMMEDIATE);
-        EventModel::defaultEventBus->listen(DEVICE_ID_DISPLAY, DISPLAY_EVT_ANIMATION_STARTED, this, &MicroBitAccessibility::displayEvent, MESSAGE_BUS_LISTENER_IMMEDIATE);
-        EventModel::defaultEventBus->listen(DEVICE_ID_DISPLAY, DISPLAY_EVT_ANIMATION_STOPPED, this, &MicroBitAccessibility::displayEvent, MESSAGE_BUS_LISTENER_IMMEDIATE);
-    }
+    // serial->send(ManagedString("Accessibility Initialised :)\r\n"));
+    applySubscriptions();
     
     return DEVICE_OK;
 }
 
-void MicroBitAccessibility::displayEvent(Event e)
+void MicroBitAccessibility::applySubscriptions()
 {
-    switch (e.value)
+    if (!EventModel::defaultEventBus)
+        return;
+
+    SubscriptionList subs = responder->getSubscriptions();
+
+    for (int i = 0; i < subs.count; i++)
     {
-    case DISPLAY_EVT_ANIMATION_COMPLETE:
-        serial.send(ManagedString("Animation completed.\r\n"), SYNC_SPINWAIT); //busy wait instead of ceding to the scheduler
-        break;
-    
-    case DISPLAY_EVT_ANIMATION_STARTED:
-        serial.send(buildDescription(), SYNC_SPINWAIT);
-        break;
-    
-    case DISPLAY_EVT_ANIMATION_STOPPED:
-        serial.send(ManagedString("Animation stopped.\r\n"), SYNC_SPINWAIT);
-        break;
-    
-    default:
-        // unrecognised event (that we've subscribed to)
-        serial.send(ManagedString("ERR: unhandled event\r\n"), SYNC_SPINWAIT);
-        break;
+        EventSubscription tempSub = subs.subs[i]; //for some reason, using subs.subs[i].source/value inside of the listen call causes a crash. So here we are. 
+        // EventModel::defaultEventBus->listen(subs.subs[i].source, subs.subs[i].value, this, &MicroBitAccessibility::onEvent, MESSAGE_BUS_LISTENER_IMMEDIATE); //what caused the crash
+        EventModel::defaultEventBus->listen(tempSub.source, tempSub.value, this, &MicroBitAccessibility::onEvent, MESSAGE_BUS_LISTENER_IMMEDIATE);
+        activeSubs[i] = tempSub;
     }
+
+    activeCount = subs.count;
 }
 
-ManagedString MicroBitAccessibility::buildDescription()
+void MicroBitAccessibility::removeSubscriptions()
 {
-    AnimationMode mode = display.getAnimationMode();
-    ManagedString message = display.getCurrentText(); // TODO: atm could put the +"\r\n" on here, let's see how it ends up. Could also move that outside of this function altogether. depends how you concieve of this function's purpose i guess. 
+    if (!EventModel::defaultEventBus)
+        return;
 
-    if (mode == ANIMATION_MODE_NONE || mode == ANIMATION_MODE_STOPPED)
-        return message+"\r\n"; // should basically never happen?
+    for (int i = 0; i < activeCount; i++)
+        EventModel::defaultEventBus->ignore(activeSubs[i].source, activeSubs[i].value, this, &MicroBitAccessibility::onEvent);
 
-    if (mode == ANIMATION_MODE_SCROLL_TEXT || mode == ANIMATION_MODE_PRINT_TEXT || mode == ANIMATION_MODE_PRINT_CHARACTER)
-        return "Text: "+message+"\r\n";
-    
-    if (mode == ANIMATION_MODE_SCROLL_IMAGE || mode == ANIMATION_MODE_ANIMATE_IMAGE || mode == ANIMATION_MODE_ANIMATE_IMAGE_WITH_CLEAR || mode == ANIMATION_MODE_PRINT_IMAGE)
-        return "Image: "+message+"\r\n";
+    activeCount = 0;
+}
 
-    return "ERR: "+message+"\r\n";
+void MicroBitAccessibility::setResponder(MicroBitAccessibilityResponder& r)
+{
+    removeSubscriptions();
+    responder = &r;
+    applySubscriptions();
+}
+
+void MicroBitAccessibility::setTransmitter(MicroBitAccessibilityTransmitter& t)
+{
+    transmitter = &t;
+}
+
+void MicroBitAccessibility::onEvent(Event e)
+{
+    ManagedBuffer message = responder->onEvent(e);
+    // if there's nothing to send, don't send it
+    if (message.length() > 0)
+        transmitter->transmit(message);
 }
