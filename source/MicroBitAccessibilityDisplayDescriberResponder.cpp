@@ -50,11 +50,23 @@ ManagedString MicroBitAccessibilityDisplayDescriberResponder::buildDescription()
     if (mode == ANIMATION_MODE_NONE || mode == ANIMATION_MODE_STOPPED)
         return message+"\r\n"; // should basically never happen?
 
-    if (mode == ANIMATION_MODE_SCROLL_TEXT || mode == ANIMATION_MODE_PRINT_TEXT || mode == ANIMATION_MODE_PRINT_CHARACTER)
-        return "Text: "+message+"\r\n";
+    if (mode == ANIMATION_MODE_SCROLL_TEXT)
+        return "Scrolling text: "+message+"\r\n";
+    
+    if (mode == ANIMATION_MODE_PRINT_TEXT)
+        return "Printed text: "+message+"\r\n";
+
+    if (mode == ANIMATION_MODE_PRINT_CHARACTER)
+        return "Printed character: "+message+"\r\n";
     
     if (mode == ANIMATION_MODE_SCROLL_IMAGE || mode == ANIMATION_MODE_ANIMATE_IMAGE || mode == ANIMATION_MODE_ANIMATE_IMAGE_WITH_CLEAR || mode == ANIMATION_MODE_PRINT_IMAGE)
-        return "Image: "+message+"\r\n";
+        return "Scrolling image: "+message+"\r\n";
+
+    if (mode == ANIMATION_MODE_ANIMATE_IMAGE || mode == ANIMATION_MODE_ANIMATE_IMAGE_WITH_CLEAR)
+        return "Animated image: "+message+"\r\n";
+
+    if (mode == ANIMATION_MODE_PRINT_IMAGE)
+        return "Static image: "+message+"\r\n";
 
     return "ERR: "+message+"\r\n"; // If we'd prefer to fail silently: return ManagedString();
 }

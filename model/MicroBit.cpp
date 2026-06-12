@@ -92,9 +92,10 @@ MicroBit::MicroBit() :
     compassCalibrator(compass, accelerometer, display, storage),
     audio(io.P0, io.speaker, adc, io.microphone, io.runmic),
     log(flash, power, serial),
+    displayMonitor(display),
     accessibilityResponder(display),
     accessibilityTransmitter(serial),
-    accessibility(accessibilityResponder,accessibilityTransmitter)
+    accessibility(accessibilityResponder,accessibilityTransmitter,serial)
 {
     // Clear our status
     status = 0;
